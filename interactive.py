@@ -128,18 +128,23 @@ class Fortress(cmd.Cmd):
 
     def do_open(self, ip):
         """open connection of give ip"""
-        curses.setupterm()
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username="test", password='87102100')
-        chan = ssh.invoke_shell(term="linux", width=curses.tigetnum('cols'), height=curses.tigetnum('lines'))
-        c = threading.Event()
-        refresh = threading.Thread(name="refresh", target=self.resize, args=(chan, c))
-        refresh.daemon = True
-        refresh.start()
-        session_id, start, end = self.posix_shell(chan)
-        c.set()
-        self.db.store(session_id, start, end, self.user, chan.getpeername()[0])
+        try:
+            curses.setupterm()
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip, username="test", password='87102100')
+            chan = ssh.invoke_shell(term="linux", width=curses.tigetnum('cols'), height=curses.tigetnum('lines'))
+            c = threading.Event()
+            refresh = threading.Thread(name="refresh", target=self.resize, args=(chan, c))
+            refresh.daemon = True
+            refresh.start()
+            sys.stdout.write('\x1b]2;%s@%s\x07' % (self.user, ip))
+            session_id, start, end = self.posix_shell(chan)
+            c.set()
+            self.db.store(session_id, start, end, self.user, chan.getpeername()[0])
+        except Exception as e:
+            pass
+        sys.stdout.write('\x1b]2;%s@passport\x07' % self.user)
 
     def do_exit(self, arg):
         """exit shell"""
@@ -156,6 +161,7 @@ class Fortress(cmd.Cmd):
 
 if __name__ == '__main__':
     fortress = Fortress()
+    sys.stdout.write('\x1b]2;%s@passport\x07' % fortress.user)
     intro = """
   ______         _
  |  ____|       | |
