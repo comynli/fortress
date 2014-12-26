@@ -1,3 +1,4 @@
+#!/bin/env python
 # coding=utf-8
 
 import os
@@ -55,9 +56,9 @@ class Fortress(cmd.Cmd):
     etc_host = os.getenv("ETC_HOST", "localhost")
     etc_port = int(os.getenv("ETC_PORT", 4001))
     conf = etcd.Client(host=etc_host, port=etc_port)
-    db = Db(host=conf.read('/passport/fortress/db/host').value, port=int(conf.read('/passport/fortress/db/port').value),
-            user=conf.read('/passport/fortress/db/user').value, passwd=conf.read('/passport/fortress/db/passwd').value,
-            db=conf.read('/passport/fortress/db/database').value)
+    db = Db(host=conf.read('/fortress/db/host').value, port=int(conf.read('/fortress/db/port').value),
+            user=conf.read('/fortress/db/user').value, passwd=conf.read('/fortress/db/passwd').value,
+            db=conf.read('/fortress/db/database').value)
     user = getpass.getuser()
     host = None
     prompt = "%s@%s >>> " % (user, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -88,8 +89,8 @@ class Fortress(cmd.Cmd):
     def posix_shell(cls, chan):
         old_tty = termios.tcgetattr(sys.stdin)
         session_id = uuid.uuid4().hex
-        log_txt = open(os.path.join(cls.conf.read("/passport/fortress/audit/txt").value, session_id), 'w')
-        log_time = open(os.path.join(cls.conf.read("/passport/fortress/audit/time").value, session_id), 'w')
+        log_txt = open(os.path.join(cls.conf.read("/fortress/audit/txt").value, session_id), 'w')
+        log_time = open(os.path.join(cls.conf.read("/fortress/audit/time").value, session_id), 'w')
         c = threading.Event()
 
         timer = threading.Thread(name="timer-%s" % session_id, target=cls.timing, args=(log_txt, log_time, c))
@@ -132,7 +133,7 @@ class Fortress(cmd.Cmd):
             curses.setupterm()
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip, username="test", password='87102100')
+            ssh.connect(ip, username=self.user, gss_auth=True)
             chan = ssh.invoke_shell(term="linux", width=curses.tigetnum('cols'), height=curses.tigetnum('lines'))
             c = threading.Event()
             refresh = threading.Thread(name="refresh", target=self.resize, args=(chan, c))
@@ -143,7 +144,7 @@ class Fortress(cmd.Cmd):
             c.set()
             self.db.store(session_id, start, end, self.user, chan.getpeername()[0])
         except Exception as e:
-            pass
+            print e
         sys.stdout.write('\x1b]2;%s@passport\x07' % self.user)
 
     def do_exit(self, arg):
